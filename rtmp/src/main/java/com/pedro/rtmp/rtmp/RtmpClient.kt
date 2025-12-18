@@ -701,7 +701,8 @@ class RtmpClient(private val connectChecker: ConnectChecker) {
       scope.launch {
         val s = socket ?: return@launch
         lastPingTimestamp = TimeUtils.getCurrentTimeMillis()
-        lastPingSequence = (lastPingSequence + 1) and Int.MAX_VALUE // Wrap around to avoid negative values
+        // Use modulo to wrap around and stay positive (0 to Int.MAX_VALUE - 1)
+        lastPingSequence = if (lastPingSequence >= Int.MAX_VALUE - 1) 0 else lastPingSequence + 1
         commandsManager.sendPing(lastPingSequence, s)
       }
     }
