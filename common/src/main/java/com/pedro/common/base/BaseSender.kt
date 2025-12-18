@@ -175,5 +175,9 @@ abstract class BaseSender(
 
     fun resetBytesSend() {
         bytesSend = 0
+        videoBytesSendPerSecond = 0
+        audioBytesSendPerSecond = 0
+        currentVideoBitrate = 0
+        currentAudioBitrate = 0
     }
 }
