@@ -110,6 +110,38 @@ class RtmpClient(private val connectChecker: ConnectChecker) {
   var socketTimeout = StreamSocket.DEFAULT_TIMEOUT
   var shouldFailOnRead = false
 
+  // RTT tracking
+  @Volatile
+  private var rtt = 0L // Current RTT in milliseconds
+  @Volatile
+  private var rttSum = 0L // Sum of all RTT measurements
+  @Volatile
+  private var rttCount = 0L // Number of RTT measurements
+  @Volatile
+  private var lastPingTimestamp = 0L // Timestamp when last ping was sent
+
+  /**
+   * Get the current RTT (Round Trip Time) in milliseconds.
+   * This is measured using RTMP User Control ping-pong messages.
+   */
+  fun getRtt(): Long = rtt
+
+  /**
+   * Get the average RTT (Round Trip Time) in milliseconds.
+   * This is the average of all RTT measurements since the last reset.
+   */
+  fun getAverageRtt(): Long = if (rttCount > 0) rttSum / rttCount else 0L
+
+  /**
+   * Get the current video bitrate in bits per second.
+   */
+  fun getVideoBitrate(): Long = rtmpSender.getVideoBitrate()
+
+  /**
+   * Get the current audio bitrate in bits per second.
+   */
+  fun getAudioBitrate(): Long = rtmpSender.getAudioBitrate()
+
   /**
    * Add certificates for TLS connection
    */
@@ -390,6 +422,17 @@ class RtmpClient(private val connectChecker: ConnectChecker) {
           Type.PING_REQUEST -> {
             commandsManager.sendPong(userControl.event, socket)
           }
+          Type.PONG_REPLY -> {
+            // Calculate RTT when we receive a pong response to our ping
+            if (lastPingTimestamp > 0) {
+              val currentRtt = TimeUtils.getCurrentTimeMillis() - lastPingTimestamp
+              rtt = currentRtt
+              rttSum += currentRtt
+              rttCount++
+              lastPingTimestamp = 0
+              Log.i(TAG, "RTT measured: $currentRtt ms, average: ${getAverageRtt()} ms")
+            }
+          }
           else -> {
             Log.i(TAG, "user control command $type ignored")
           }
@@ -566,6 +609,7 @@ class RtmpClient(private val connectChecker: ConnectChecker) {
     scope = CoroutineScope(Dispatchers.IO)
     publishPermitted = false
     commandsManager.reset()
+    resetRtt()
   }
 
   fun sendVideo(videoBuffer: ByteBuffer, info: MediaCodec.BufferInfo) {
@@ -606,6 +650,16 @@ class RtmpClient(private val connectChecker: ConnectChecker) {
     rtmpSender.resetBytesSend()
   }
 
+  /**
+   * Reset RTT tracking data.
+   */
+  fun resetRtt() {
+    rtt = 0
+    rttSum = 0
+    rttCount = 0
+    lastPingTimestamp = 0
+  }
+
   @Throws(RuntimeException::class)
   fun resizeCache(newSize: Int) {
     rtmpSender.resizeCache(newSize)
@@ -633,4 +687,19 @@ class RtmpClient(private val connectChecker: ConnectChecker) {
    * Get the exponential factor used to calculate the bitrate. Default 1f
    */
   fun getBitrateExponentialFactor() = rtmpSender.getBitrateExponentialFactor()
+
+  /**
+   * Send a ping request to measure RTT.
+   * The RTT will be updated when the server responds with a pong.
+   * Call getRtt() or getAverageRtt() to get the measured values.
+   */
+  fun measureRtt() {
+    if (isStreaming && socket != null) {
+      scope.launch {
+        val s = socket ?: return@launch
+        lastPingTimestamp = TimeUtils.getCurrentTimeMillis()
+        commandsManager.sendPing(lastPingTimestamp.toInt(), s)
+      }
+    }
+  }
 }

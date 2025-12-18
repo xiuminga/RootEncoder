@@ -89,6 +89,7 @@ class RtmpSender(
                 Log.i(TAG, "wrote Video packet, size $size")
               }
             }
+            videoBytesSendPerSecond += size
           } else {
             audioFramesSent++
             socket?.let { socket ->
@@ -97,6 +98,7 @@ class RtmpSender(
                 Log.i(TAG, "wrote Audio packet, size $size")
               }
             }
+            audioBytesSendPerSecond += size
           }
           bytesSend += size
           bytesSendPerSecond += size

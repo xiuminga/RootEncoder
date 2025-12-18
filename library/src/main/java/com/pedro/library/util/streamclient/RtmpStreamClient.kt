@@ -192,4 +192,42 @@ class RtmpStreamClient(
   fun shouldFailOnRead(enabled: Boolean) {
     rtmpClient.shouldFailOnRead = enabled
   }
+
+  /**
+   * Get the current video bitrate in bits per second.
+   */
+  fun getVideoBitrate(): Long = rtmpClient.getVideoBitrate()
+
+  /**
+   * Get the current audio bitrate in bits per second.
+   */
+  fun getAudioBitrate(): Long = rtmpClient.getAudioBitrate()
+
+  /**
+   * Get the current RTT (Round Trip Time) in milliseconds.
+   * This is measured using RTMP User Control ping-pong messages.
+   */
+  fun getRtt(): Long = rtmpClient.getRtt()
+
+  /**
+   * Get the average RTT (Round Trip Time) in milliseconds.
+   * This is the average of all RTT measurements since the last reset.
+   */
+  fun getAverageRtt(): Long = rtmpClient.getAverageRtt()
+
+  /**
+   * Send a ping request to measure RTT.
+   * The RTT will be updated when the server responds with a pong.
+   * Call getRtt() or getAverageRtt() to get the measured values.
+   */
+  fun measureRtt() {
+    rtmpClient.measureRtt()
+  }
+
+  /**
+   * Reset RTT tracking data.
+   */
+  fun resetRtt() {
+    rtmpClient.resetRtt()
+  }
 }

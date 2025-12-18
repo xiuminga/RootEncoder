@@ -40,6 +40,14 @@ abstract class BaseSender(
         protected set
     @Volatile
     protected var bytesSendPerSecond = 0L
+    @Volatile
+    protected var videoBytesSendPerSecond = 0L
+    @Volatile
+    protected var audioBytesSendPerSecond = 0L
+    @Volatile
+    private var currentVideoBitrate = 0L
+    @Volatile
+    private var currentAudioBitrate = 0L
 
     abstract fun setVideoInfo(sps: ByteBuffer, pps: ByteBuffer?, vps: ByteBuffer?)
     abstract fun setAudioInfo(sampleRate: Int, isStereo: Boolean)
@@ -70,7 +78,11 @@ abstract class BaseSender(
                 while (scope.isActive && running) {
                     //bytes to bits
                     bitrateManager.calculateBitrate(bytesSendPerSecond * 8)
+                    currentVideoBitrate = videoBytesSendPerSecond * 8
+                    currentAudioBitrate = audioBytesSendPerSecond * 8
                     bytesSendPerSecond = 0
+                    videoBytesSendPerSecond = 0
+                    audioBytesSendPerSecond = 0
                     delay(timeMillis = 1000)
                 }
             }
@@ -150,6 +162,16 @@ abstract class BaseSender(
     fun setDelay(delay: Long) {
         queue.setCacheTime(delay)
     }
+
+    /**
+     * Get the current video bitrate in bits per second.
+     */
+    fun getVideoBitrate(): Long = currentVideoBitrate
+
+    /**
+     * Get the current audio bitrate in bits per second.
+     */
+    fun getAudioBitrate(): Long = currentAudioBitrate
 
     fun resetBytesSend() {
         bytesSend = 0
