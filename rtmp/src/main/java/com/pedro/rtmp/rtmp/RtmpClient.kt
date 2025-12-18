@@ -119,6 +119,8 @@ class RtmpClient(private val connectChecker: ConnectChecker) {
   private var rttCount = 0L // Number of RTT measurements
   @Volatile
   private var lastPingTimestamp = 0L // Timestamp when last ping was sent
+  @Volatile
+  private var lastPingSequence = 0 // Sequence number for ping-pong matching
 
   /**
    * Get the current RTT (Round Trip Time) in milliseconds.
@@ -423,8 +425,8 @@ class RtmpClient(private val connectChecker: ConnectChecker) {
             commandsManager.sendPong(userControl.event, socket)
           }
           Type.PONG_REPLY -> {
-            // Calculate RTT when we receive a pong response to our ping
-            if (lastPingTimestamp > 0) {
+            // Calculate RTT when we receive a pong response that matches our ping sequence
+            if (lastPingTimestamp > 0 && userControl.event.data == lastPingSequence) {
               val currentRtt = TimeUtils.getCurrentTimeMillis() - lastPingTimestamp
               rtt = currentRtt
               rttSum += currentRtt
@@ -658,6 +660,7 @@ class RtmpClient(private val connectChecker: ConnectChecker) {
     rttSum = 0
     rttCount = 0
     lastPingTimestamp = 0
+    lastPingSequence = 0
   }
 
   @Throws(RuntimeException::class)
@@ -698,7 +701,8 @@ class RtmpClient(private val connectChecker: ConnectChecker) {
       scope.launch {
         val s = socket ?: return@launch
         lastPingTimestamp = TimeUtils.getCurrentTimeMillis()
-        commandsManager.sendPing(lastPingTimestamp.toInt(), s)
+        lastPingSequence = (lastPingSequence + 1) and Int.MAX_VALUE // Wrap around to avoid negative values
+        commandsManager.sendPing(lastPingSequence, s)
       }
     }
   }
